@@ -1,5 +1,5 @@
 import Vue from 'vue'
-import { isIE9, isAndroid } from 'core/util/env'
+import { isIE9, isIE, isAndroid } from 'core/util/env'
 
 describe('Directive v-model text', () => {
   it('should update value both ways', done => {
@@ -17,6 +17,21 @@ describe('Directive v-model text', () => {
       triggerEvent(vm.$el, 'input')
       expect(vm.test).toBe('c')
     }).then(done)
+  })
+
+  it('should work with space ended expression in v-model', () => {
+    const vm = new Vue({
+      data: {
+        obj: {
+          test: 'b'
+        }
+      },
+      template: '<input v-model="obj.test ">'
+    }).$mount()
+
+    triggerEvent(vm.$el, 'input')
+    expect(vm.obj['test ']).toBe(undefined)
+    expect(vm.obj.test).toBe('b')
   })
 
   it('.lazy modifier', () => {
@@ -45,6 +60,7 @@ describe('Directive v-model text', () => {
     expect(vm.test).toBe(1)
     vm.$el.value = '2'
     triggerEvent(vm.$el, 'input')
+    expect(vm.test).toBe(2)
     // should let strings pass through
     vm.$el.value = 'f'
     triggerEvent(vm.$el, 'input')
@@ -62,6 +78,102 @@ describe('Directive v-model text', () => {
     vm.$el.value = ' what '
     triggerEvent(vm.$el, 'input')
     expect(vm.test).toBe('what')
+  })
+
+  it('.number focus and typing', (done) => {
+    const vm = new Vue({
+      data: {
+        test: 0,
+        update: 0
+      },
+      template:
+        '<div>' +
+          '<input ref="input" v-model.number="test">{{ update }}' +
+          '<input ref="blur">' +
+        '</div>'
+    }).$mount()
+    document.body.appendChild(vm.$el)
+    vm.$refs.input.focus()
+    expect(vm.test).toBe(0)
+    vm.$refs.input.value = '1.0'
+    triggerEvent(vm.$refs.input, 'input')
+    expect(vm.test).toBe(1)
+    vm.update++
+    waitForUpdate(() => {
+      expect(vm.$refs.input.value).toBe('1.0')
+      vm.$refs.blur.focus()
+      vm.update++
+    }).then(() => {
+      expect(vm.$refs.input.value).toBe('1')
+    }).then(done)
+  })
+
+  it('.trim focus and typing', (done) => {
+    const vm = new Vue({
+      data: {
+        test: 'abc',
+        update: 0
+      },
+      template:
+        '<div>' +
+          '<input ref="input" v-model.trim="test" type="text">{{ update }}' +
+          '<input ref="blur"/>' +
+        '</div>'
+    }).$mount()
+    document.body.appendChild(vm.$el)
+    vm.$refs.input.focus()
+    vm.$refs.input.value = ' abc '
+    triggerEvent(vm.$refs.input, 'input')
+    expect(vm.test).toBe('abc')
+    vm.update++
+    waitForUpdate(() => {
+      expect(vm.$refs.input.value).toBe(' abc ')
+      vm.$refs.blur.focus()
+      vm.update++
+    }).then(() => {
+      expect(vm.$refs.input.value).toBe('abc')
+    }).then(done)
+  })
+
+  it('multiple inputs', (done) => {
+    const spy = jasmine.createSpy()
+    const vm = new Vue({
+      data: {
+        selections: [[1, 2, 3], [4, 5]],
+        inputList: [
+          {
+            name: 'questionA',
+            data: ['a', 'b', 'c']
+          },
+          {
+            name: 'questionB',
+            data: ['1', '2']
+          }
+        ]
+      },
+      watch: {
+        selections: spy
+      },
+      template:
+        '<div>' +
+          '<div v-for="(inputGroup, idx) in inputList">' +
+            '<div>' +
+              '<span v-for="(item, index) in inputGroup.data">' +
+                '<input v-bind:name="item" type="text" v-model.number="selections[idx][index]" v-bind:id="idx+\'-\'+index"/>' +
+                '<label>{{item}}</label>' +
+              '</span>' +
+            '</div>' +
+          '</div>' +
+          '<span ref="rs">{{selections}}</span>' +
+        '</div>'
+    }).$mount()
+    const inputs = vm.$el.getElementsByTagName('input')
+    inputs[1].value = 'test'
+    triggerEvent(inputs[1], 'input')
+    waitForUpdate(() => {
+      expect(spy).toHaveBeenCalled()
+      expect(vm.selections).toEqual([[1, 'test', 3], [4, 5]])
+    }).then(done)
   })
 
   if (isIE9) {
@@ -86,50 +198,24 @@ describe('Directive v-model text', () => {
     })
   }
 
-  if (!isAndroid) {
-    it('compositionevents', function (done) {
-      const vm = new Vue({
-        data: {
-          test: 'foo'
-        },
-        template: '<input v-model="test">'
-      }).$mount()
-      const input = vm.$el
-      triggerEvent(input, 'compositionstart')
-      input.value = 'baz'
-      // input before composition unlock should not call set
-      triggerEvent(input, 'input')
-      expect(vm.test).toBe('foo')
-      // after composition unlock it should work
-      triggerEvent(input, 'compositionend')
-      triggerEvent(input, 'input')
-      expect(vm.test).toBe('baz')
-      done()
-    })
-  }
-
-  it('warn inline value attribute', () => {
+  it('compositionevents', function (done) {
     const vm = new Vue({
       data: {
         test: 'foo'
       },
-      template: '<input v-model="test" value="bar">'
+      template: '<input v-model="test">'
     }).$mount()
+    const input = vm.$el
+    triggerEvent(input, 'compositionstart')
+    input.value = 'baz'
+    // input before composition unlock should not call set
+    triggerEvent(input, 'input')
     expect(vm.test).toBe('foo')
-    expect(vm.$el.value).toBe('foo')
-    expect('inline value attributes will be ignored').toHaveBeenWarned()
-  })
-
-  it('warn textarea inline content', function () {
-    const vm = new Vue({
-      data: {
-        test: 'foo'
-      },
-      template: '<textarea v-model="test">bar</textarea>'
-    }).$mount()
-    expect(vm.test).toBe('foo')
-    expect(vm.$el.value).toBe('foo')
-    expect('inline content inside <textarea> will be ignored').toHaveBeenWarned()
+    // after composition unlock it should work
+    triggerEvent(input, 'compositionend')
+    triggerEvent(input, 'input')
+    expect(vm.test).toBe('baz')
+    done()
   })
 
   it('warn invalid tag', () => {
@@ -139,7 +225,7 @@ describe('Directive v-model text', () => {
       },
       template: '<div v-model="test"></div>'
     }).$mount()
-    expect('v-model is not supported on element type: <div>').toHaveBeenWarned()
+    expect('<div v-model="test">: v-model is not supported on this element type').toHaveBeenWarned()
   })
 
   // #3468
@@ -152,7 +238,7 @@ describe('Directive v-model text', () => {
       template: '<input v-model="a" @input="onInput">',
       methods: {
         onInput (e) {
-          spy(e.target.value)
+          spy(this.a)
         }
       }
     }).$mount()
@@ -176,4 +262,211 @@ describe('Directive v-model text', () => {
     }).$mount()
     expect('You are binding v-model directly to a v-for iteration alias').toHaveBeenWarned()
   })
+
+  it('warn if v-model and v-bind:value conflict', () => {
+    new Vue({
+      data: {
+        test: 'foo'
+      },
+      template: '<input type="text" v-model="test" v-bind:value="test">'
+    }).$mount()
+    expect('v-bind:value="test" conflicts with v-model').toHaveBeenWarned()
+  })
+
+  it('warn if v-model and :value conflict', () => {
+    new Vue({
+      data: {
+        test: 'foo'
+      },
+      template: '<input type="text" v-model="test" :value="test">'
+    }).$mount()
+    expect(':value="test" conflicts with v-model').toHaveBeenWarned()
+  })
+
+  it('should not warn on radio, checkbox, or custom component', () => {
+    new Vue({
+      data: { test: '' },
+      components: {
+        foo: {
+          props: ['model', 'value'],
+          model: { prop: 'model', event: 'change' },
+          template: `<div/>`
+        }
+      },
+      template: `
+        <div>
+          <input type="checkbox" v-model="test" :value="test">
+          <input type="radio" v-model="test" :value="test">
+          <foo v-model="test" :value="test"/>
+        </div>
+      `
+    }).$mount()
+    expect('conflicts with v-model').not.toHaveBeenWarned()
+  })
+
+  it('should not warn on input with dynamic type binding', () => {
+    new Vue({
+      data: {
+        type: 'checkbox',
+        test: 'foo'
+      },
+      template: '<input :type="type" v-model="test" :value="test">'
+    }).$mount()
+    expect('conflicts with v-model').not.toHaveBeenWarned()
+  })
+
+  if (!isAndroid) {
+    it('does not trigger extra input events with single compositionend', () => {
+      const spy = jasmine.createSpy()
+      const vm = new Vue({
+        data: {
+          a: 'a'
+        },
+        template: '<input v-model="a" @input="onInput">',
+        methods: {
+          onInput (e) {
+            spy(e.target.value)
+          }
+        }
+      }).$mount()
+      expect(spy.calls.count()).toBe(0)
+      vm.$el.value = 'b'
+      triggerEvent(vm.$el, 'input')
+      expect(spy.calls.count()).toBe(1)
+      triggerEvent(vm.$el, 'compositionend')
+      expect(spy.calls.count()).toBe(1)
+    })
+
+    it('triggers extra input on compositionstart + end', () => {
+      const spy = jasmine.createSpy()
+      const vm = new Vue({
+        data: {
+          a: 'a'
+        },
+        template: '<input v-model="a" @input="onInput">',
+        methods: {
+          onInput (e) {
+            spy(e.target.value)
+          }
+        }
+      }).$mount()
+      expect(spy.calls.count()).toBe(0)
+      vm.$el.value = 'b'
+      triggerEvent(vm.$el, 'input')
+      expect(spy.calls.count()).toBe(1)
+      triggerEvent(vm.$el, 'compositionstart')
+      triggerEvent(vm.$el, 'compositionend')
+      expect(spy.calls.count()).toBe(2)
+    })
+
+    // #4392
+    it('should not update value with modifiers when in focus if post-conversion values are the same', done => {
+      const vm = new Vue({
+        data: {
+          a: 1,
+          foo: false
+        },
+        template: '<div>{{ foo }}<input ref="input" v-model.number="a"></div>'
+      }).$mount()
+
+      document.body.appendChild(vm.$el)
+      vm.$refs.input.focus()
+      vm.$refs.input.value = '1.000'
+      vm.foo = true
+
+      waitForUpdate(() => {
+        expect(vm.$refs.input.value).toBe('1.000')
+      }).then(done)
+    })
+
+    // #6552
+    // This was original introduced due to the microtask between DOM events issue
+    // but fixed after switching to MessageChannel.
+    it('should not block input when another input listener with modifier is used', done => {
+      const vm = new Vue({
+        data: {
+          a: 'a',
+          foo: false
+        },
+        template: `
+          <div>
+            <input ref="input" v-model="a" @input.capture="onInput">{{ a }}
+            <div v-if="foo">foo</div>
+          </div>
+        `,
+        methods: {
+          onInput (e) {
+            this.foo = true
+          }
+        }
+      }).$mount()
+
+      document.body.appendChild(vm.$el)
+      vm.$refs.input.focus()
+      vm.$refs.input.value = 'b'
+      triggerEvent(vm.$refs.input, 'input')
+
+      // not using wait for update here because there will be two update cycles
+      // one caused by onInput in the first listener
+      setTimeout(() => {
+        expect(vm.a).toBe('b')
+        expect(vm.$refs.input.value).toBe('b')
+        done()
+      }, 16)
+    })
+
+    it('should create and make reactive non-existent properties', done => {
+      const vm = new Vue({
+        data: {
+          foo: {}
+        },
+        template: '<input v-model="foo.bar">'
+      }).$mount()
+      expect(vm.$el.value).toBe('')
+
+      vm.$el.value = 'a'
+      triggerEvent(vm.$el, 'input')
+      expect(vm.foo.bar).toBe('a')
+      vm.foo.bar = 'b'
+      waitForUpdate(() => {
+        expect(vm.$el.value).toBe('b')
+        vm.foo = {}
+      }).then(() => {
+        expect(vm.$el.value).toBe('')
+      }).then(done)
+    })
+  }
+
+  if (isIE && !isIE9) {
+    // #7138
+    it('should not fire input on initial render of textarea with placeholder in IE10/11', done => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const vm = new Vue({
+        el,
+        data: { foo: null },
+        template: `<textarea v-model="foo" placeholder="bar"></textarea>`
+      })
+      setTimeout(() => {
+        expect(vm.foo).toBe(null)
+        done()
+      }, 17)
+    })
+
+    // #9042
+    it('should not block the first input event when placeholder is empty', done => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const vm = new Vue({
+        el,
+        data: { evtCount: 0 },
+        template: `<textarea placeholder="" @input="evtCount++"></textarea>`,
+      })
+      triggerEvent(vm.$el, 'input')
+      setTimeout(() => {
+        expect(vm.evtCount).toBe(1)
+        done()
+      }, 17)
+    })
+  }
 })

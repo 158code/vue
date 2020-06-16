@@ -1,6 +1,6 @@
 module.exports = {
   'grid': function (browser) {
-    var columns = ['name', 'power']
+    const columns = ['name', 'power']
 
     browser
     .url('http://localhost:8080/examples/grid/')
@@ -82,12 +82,18 @@ module.exports = {
         { name: 'Chuck Norris', power: Infinity }
       ])
 
+    browser
+      .clearValue('input[name="query"]')
+      .assert.count('p', 0)
+      .setValue('input[name="query"]', 'stringthatdoesnotexistanywhere')
+      .assert.count('p', 1)
+
     browser.end()
 
     function assertTable (data) {
       browser.assert.count('td', data.length * columns.length)
-      for (var i = 0; i < data.length; i++) {
-        for (var j = 0; j < columns.length; j++) {
+      for (let i = 0; i < data.length; i++) {
+        for (let j = 0; j < columns.length; j++) {
           browser.assert.containsText(
             'tr:nth-child(' + (i + 1) + ') td:nth-child(' + (j + 1) + ')',
             data[i][columns[j]]

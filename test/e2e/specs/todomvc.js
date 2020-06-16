@@ -85,7 +85,7 @@ module.exports = {
       createNewItem('test')
       .assert.count('.todo', 2)
 
-    // complted filter
+    // completed filter
     browser.click('.filters li:nth-child(3) a')
       .assert.count('.todo', 2)
       .assert.count('.todo.completed', 2)
@@ -119,7 +119,7 @@ module.exports = {
       .assert.focused('.todo:nth-child(1) .edit')
       .clearValue('.todo:nth-child(1) .edit')
       .setValue('.todo:nth-child(1) .edit', 'edited!')
-      .click('footer') // blur
+      .click('.new-todo') // blur
       .assert.count('.todo.editing', 0)
       .assert.containsText('.todo:nth-child(1) label', 'edited!')
 

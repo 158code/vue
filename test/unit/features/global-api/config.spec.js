@@ -1,4 +1,5 @@
 import Vue from 'vue'
+import { warn } from 'core/util/debug'
 
 describe('Global config', () => {
   it('should warn replacing config object', () => {
@@ -10,47 +11,15 @@ describe('Global config', () => {
 
   describe('silent', () => {
     it('should be false by default', () => {
-      Vue.util.warn('foo')
+      warn('foo')
       expect('foo').toHaveBeenWarned()
     })
 
     it('should work when set to true', () => {
       Vue.config.silent = true
-      Vue.util.warn('foo')
+      warn('foo')
       expect('foo').not.toHaveBeenWarned()
       Vue.config.silent = false
-    })
-  })
-
-  describe('errorHandler', () => {
-    it('should be called with correct args', () => {
-      const spy = jasmine.createSpy('errorHandler')
-      Vue.config.errorHandler = spy
-      const err = new Error()
-      const vm = new Vue({
-        render () { throw err }
-      }).$mount()
-      expect(spy).toHaveBeenCalledWith(err, vm)
-      Vue.config.errorHandler = null
-    })
-
-    it('should capture user watcher callback errors', done => {
-      const spy = jasmine.createSpy('errorHandler')
-      Vue.config.errorHandler = spy
-      const err = new Error()
-      const vm = new Vue({
-        data: { a: 1 },
-        watch: {
-          a: () => {
-            throw err
-          }
-        }
-      }).$mount()
-      vm.a = 2
-      waitForUpdate(() => {
-        expect(spy).toHaveBeenCalledWith(err, vm)
-        Vue.config.errorHandler = null
-      }).then(done)
     })
   })
 
@@ -73,6 +42,84 @@ describe('Global config', () => {
       expect(spy.calls.count()).toBe(2)
       expect(spy).toHaveBeenCalledWith(2, 2, test)
       expect(test.$options.__test__).toBe(3)
+    })
+  })
+
+  describe('ignoredElements', () => {
+    it('should work', () => {
+      Vue.config.ignoredElements = ['foo', /^ion-/]
+      new Vue({
+        template: `<div><foo/><ion-foo/><ion-bar/></div>`
+      }).$mount()
+      expect('Unknown custom element').not.toHaveBeenWarned()
+      Vue.config.ignoredElements = []
+    })
+  })
+
+  describe('async', () => {
+    it('does not update synchronously when true', () => {
+      const spy = jasmine.createSpy()
+      const vm = new Vue({
+        template: `<div :class="value"></div>`,
+        updated: spy,
+        data: { value: true }
+      }).$mount()
+      vm.value = false
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it('updates synchronously when false', () => {
+      const spy = jasmine.createSpy()
+      Vue.config.async = false
+      const vm = new Vue({
+        template: `<div :class="value"></div>`,
+        updated: spy,
+        data: { value: true }
+      }).$mount()
+      vm.value = false
+      expect(spy).toHaveBeenCalled()
+      Vue.config.async = true
+    })
+
+    it('runs watchers in correct order when false', () => {
+      Vue.config.async = false
+      const vm = new Vue({
+        template: `
+          <div id="app">
+            {{ computed }}
+          </div>`,
+        props: ['prop'],
+        propsData: {
+          'prop': []
+        },
+        data: () => ({
+          data: ''
+        }),
+        computed: {
+          computed () {
+            return this.prop.join(',')
+          }
+        },
+        watch: {
+          prop: 'execute'
+        },
+        methods: {
+          execute () {
+            this.data = this.computed
+          }
+        }
+      }).$mount()
+      expect(vm.computed).toBe('')
+      expect(vm.data).toBe('')
+
+      vm.prop = [1, 2, 3]
+      expect(vm.computed).toBe('1,2,3')
+      expect(vm.data).toBe('1,2,3')
+
+      vm.prop.push(4, 5)
+      expect(vm.computed).toBe('1,2,3,4,5')
+      expect(vm.data).toBe('1,2,3,4,5')
+      Vue.config.async = true
     })
   })
 })

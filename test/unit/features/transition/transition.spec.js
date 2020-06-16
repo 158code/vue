@@ -5,7 +5,8 @@ import { nextFrame } from 'web/runtime/transition-util'
 
 if (!isIE9) {
   describe('Transition basic', () => {
-    const duration = injectStyles()
+    const { duration, buffer } = injectStyles()
+    const explicitDuration = duration * 2
 
     let el
     beforeEach(() => {
@@ -25,15 +26,15 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -50,15 +51,15 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -70,8 +71,10 @@ if (!isIE9) {
             <transition
               enter-class="hello"
               enter-active-class="hello-active"
+              enter-to-class="hello-to"
               leave-class="bye"
-              leave-active-class="byebye active">
+              leave-to-class="bye-to"
+              leave-active-class="byebye active more ">
               <div v-if="ok" class="test">foo</div>
             </transition>
           </div>
@@ -83,17 +86,17 @@ if (!isIE9) {
       expect(vm.$el.innerHTML).toBe('<div class="test">foo</div>')
       vm.ok = false
       waitForUpdate(() => {
-        expect(vm.$el.children[0].className).toBe('test bye byebye active')
+        expect(vm.$el.children[0].className).toBe('test bye byebye active more')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test byebye active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test byebye active more bye-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test hello hello-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test hello-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test hello-active hello-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -119,16 +122,16 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
         vm.trans = 'changed'
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test changed-enter changed-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test changed-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test changed-enter-active changed-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -143,8 +146,10 @@ if (!isIE9) {
               props: {
                 name: 'inline',
                 enterClass: 'hello',
+                enterToClass: 'hello-to',
                 enterActiveClass: 'hello-active',
                 leaveClass: 'bye',
+                leaveToClass: 'bye-to',
                 leaveActiveClass: 'byebye active'
               },
               on: {
@@ -164,16 +169,16 @@ if (!isIE9) {
         expect(vm.$el.children[0].className).toBe('test bye byebye active')
         expect(leave).toHaveBeenCalled()
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test byebye active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test byebye active bye-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test hello hello-active')
         expect(enter).toHaveBeenCalled()
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test hello-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test hello-active hello-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -234,8 +239,8 @@ if (!isIE9) {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
         expect(afterLeaveSpy).not.toHaveBeenCalled()
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(afterLeaveSpy).toHaveBeenCalledWith(_el)
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
@@ -246,8 +251,8 @@ if (!isIE9) {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
         expect(afterEnterSpy).not.toHaveBeenCalled()
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(afterEnterSpy).toHaveBeenCalledWith(_el)
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
@@ -279,20 +284,32 @@ if (!isIE9) {
         data: { ok: true },
         methods: {
           beforeLeave: (el) => {
+            expect(el.style.display).toBe('')
             expect(el).toBe(vm.$el.children[0])
             expect(el.className).toBe('test')
             beforeLeaveSpy(el)
           },
-          leave: (el) => onLeaveSpy(el),
-          afterLeave: (el) => afterLeaveSpy(el),
+          leave: (el) => {
+            expect(el.style.display).toBe('')
+            onLeaveSpy(el)
+          },
+          afterLeave: (el) => {
+            expect(el.style.display).toBe('none')
+            afterLeaveSpy(el)
+          },
           beforeEnter: (el) => {
             expect(el.className).toBe('test')
+            expect(el.style.display).toBe('none')
             beforeEnterSpy(el)
           },
           enter: (el) => {
+            expect(el.style.display).toBe('')
             onEnterSpy(el)
           },
-          afterEnter: (el) => afterEnterSpy(el)
+          afterEnter: (el) => {
+            expect(el.style.display).toBe('')
+            afterEnterSpy(el)
+          }
         }
       }).$mount(el)
 
@@ -307,8 +324,8 @@ if (!isIE9) {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
         expect(afterLeaveSpy).not.toHaveBeenCalled()
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(afterLeaveSpy).toHaveBeenCalledWith(_el)
         expect(vm.$el.children[0].style.display).toBe('none')
         vm.ok = true
@@ -319,8 +336,8 @@ if (!isIE9) {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
         expect(afterEnterSpy).not.toHaveBeenCalled()
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(afterEnterSpy).toHaveBeenCalledWith(_el)
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
@@ -348,9 +365,9 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
         expect(next).toBeTruthy()
         next()
         expect(vm.$el.children.length).toBe(0)
@@ -359,9 +376,9 @@ if (!isIE9) {
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
         expect(next).toBeTruthy()
         next()
         expect(vm.$el.children[0].className).toBe('test')
@@ -420,7 +437,7 @@ if (!isIE9) {
         expect(enterSpy).toHaveBeenCalled()
         expect(vm.$el.innerHTML).toBe('<div class="nope-enter nope-enter-active">foo</div>')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.innerHTML).toMatch(/<div( class="")?>foo<\/div>/)
+        expect(vm.$el.innerHTML).toBe('<div>foo</div>')
       }).then(done)
     })
 
@@ -444,14 +461,16 @@ if (!isIE9) {
       vm.ok = true
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
       }).thenWaitFor(duration / 2).then(() => {
         vm.ok = false
       }).then(() => {
         expect(spy).toHaveBeenCalled()
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
       }).then(done)
     })
@@ -483,8 +502,8 @@ if (!isIE9) {
         expect(vm.$el.children.length).toBe(1) // should have removed leaving element
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.innerHTML).toBe('<div class="test">foo</div>')
       }).then(done)
     })
@@ -509,16 +528,16 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].style.display).toBe('none')
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].style.display).toBe('')
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -545,16 +564,16 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].style.display).toBe('none')
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].style.display).toBe('')
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -580,16 +599,60 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
       }).thenWaitFor(10).then(() => {
         vm.ok = true
       }).then(() => {
         expect(spy).toHaveBeenCalled()
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].style.display).toBe('')
+      }).then(done)
+    })
+
+    it('leave transition with v-show: cancelled on next frame', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <transition name="test">
+              <div v-show="ok" class="test">foo</div>
+            </transition>
+          </div>
+        `,
+        data: { ok: true }
+      }).$mount(el)
+
+      vm.ok = false
+      waitForUpdate(() => {
+        vm.ok = true
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
+    it('enter transition with v-show: cancelled on next frame', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <transition name="test">
+              <div v-show="ok" class="test">foo</div>
+            </transition>
+          </div>
+        `,
+        data: { ok: false }
+      }).$mount(el)
+
+      vm.ok = true
+      waitForUpdate(() => {
+        vm.ok = false
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
 
@@ -611,15 +674,15 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test-anim-leave test-anim-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test-anim-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test-anim-leave-active test-anim-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test-anim-enter test-anim-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test-anim-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test-anim-enter-active test-anim-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('')
       }).then(done)
     })
@@ -642,19 +705,19 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-anim-long-leave test-anim-long-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-anim-long-leave-active')
+        expect(vm.$el.children[0].className).toBe('test test-anim-long-leave-active test-anim-long-leave-to')
       }).thenWaitFor(duration + 5).then(() => {
         // should not end early due to transition presence
-        expect(vm.$el.children[0].className).toBe('test test-anim-long-leave-active')
+        expect(vm.$el.children[0].className).toBe('test test-anim-long-leave-active test-anim-long-leave-to')
       }).thenWaitFor(duration + 5).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test test-anim-long-enter test-anim-long-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-anim-long-enter-active')
+        expect(vm.$el.children[0].className).toBe('test test-anim-long-enter-active test-anim-long-enter-to')
       }).thenWaitFor(duration + 5).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-anim-long-enter-active')
+        expect(vm.$el.children[0].className).toBe('test test-anim-long-enter-active test-anim-long-enter-to')
       }).thenWaitFor(duration + 5).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
@@ -667,6 +730,7 @@ if (!isIE9) {
             <transition name="test"
               appear
               appear-class="test-appear"
+              appear-to-class="test-appear-to"
               appear-active-class="test-appear-active">
               <div v-if="ok" class="test">foo</div>
             </transition>
@@ -678,8 +742,8 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-appear test-appear-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-appear-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-appear-active test-appear-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -699,8 +763,8 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
@@ -723,8 +787,8 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-leave v-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.childNodes.length).toBe(1)
         expect(vm.$el.childNodes[0].nodeType).toBe(8) // should be an empty comment node
         expect(vm.$el.childNodes[0].textContent).toBe('')
@@ -732,8 +796,8 @@ if (!isIE9) {
       }).then(() => {
         expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-enter v-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test v-enter-active v-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.childNodes[0].getAttribute('class')).toBe('test')
       }).then(done)
     })
@@ -765,20 +829,20 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
       }).then(done)
     })
 
-    it('transition inside child component', done => {
+    it('transition inside child component with v-if', done => {
       const vm = new Vue({
         template: `
           <div>
@@ -803,16 +867,128 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
-      }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test v-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
+    it('transition with appear inside child component with v-if', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <test v-if="ok" class="test"></test>
+          </div>
+        `,
+        data: { ok: true },
+        components: {
+          test: {
+            template: `
+              <transition appear
+                appear-class="test-appear"
+                appear-to-class="test-appear-to"
+                appear-active-class="test-appear-active">
+                <div>foo</div>
+              </transition>
+            `
+          }
+        }
+      }).$mount(el)
+
+      waitForUpdate(() => {
+        expect(vm.$el.children[0].className).toBe('test test-appear test-appear-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-appear-active test-appear-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+        vm.ok = false
+      }).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children.length).toBe(0)
+      }).then(done)
+    })
+
+    it('transition inside nested child component with v-if', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <foo v-if="ok" class="test"></foo>
+          </div>
+        `,
+        data: { ok: true },
+        components: {
+          foo: {
+            template: '<bar></bar>',
+            components: {
+              bar: {
+                template: '<transition><div>foo</div></transition>'
+              }
+            }
+          }
+        }
+      }).$mount(el)
+
+      // should not apply transition on initial render by default
+      expect(vm.$el.innerHTML).toBe('<div class="test">foo</div>')
+      vm.ok = false
+      waitForUpdate(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children.length).toBe(0)
+        vm.ok = true
+      }).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
+    it('transition with appear inside nested child component with v-if', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <foo v-if="ok" class="test"></foo>
+          </div>
+        `,
+        data: { ok: true },
+        components: {
+          foo: {
+            template: '<bar></bar>',
+            components: {
+              bar: {
+                template: `
+                  <transition appear
+                    appear-class="test-appear"
+                    appear-to-class="test-appear-to"
+                    appear-active-class="test-appear-active">
+                    <div>foo</div>
+                  </transition>
+                `
+              }
+            }
+          }
+        }
+      }).$mount(el)
+
+      waitForUpdate(() => {
+        expect(vm.$el.children[0].className).toBe('test test-appear test-appear-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-appear-active test-appear-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+        vm.ok = false
+      }).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children.length).toBe(0)
       }).then(done)
     })
 
@@ -837,16 +1013,292 @@ if (!isIE9) {
       waitForUpdate(() => {
         expect(vm.$el.children[0].className).toBe('test test-leave test-leave-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-leave-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-leave-active test-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children.length).toBe(0)
         vm.ok = true
       }).then(() => {
         expect(vm.$el.children[0].className).toBe('test test-enter test-enter-active')
       }).thenWaitFor(nextFrame).then(() => {
-        expect(vm.$el.children[0].className).toBe('test test-enter-active')
-      }).thenWaitFor(duration + 10).then(() => {
+        expect(vm.$el.children[0].className).toBe('test test-enter-active test-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
         expect(vm.$el.children[0].className).toBe('test')
+      }).then(done)
+    })
+
+    it('warn when used on multiple elements', () => {
+      new Vue({
+        template: `<transition><p>1</p><p>2</p></transition>`
+      }).$mount()
+      expect(`<transition> can only be used on a single element`).toHaveBeenWarned()
+    })
+
+    describe('explicit durations -', () => {
+      it('single value', done => {
+        const vm = new Vue({
+          template: `
+            <div>
+              <transition duration="${explicitDuration}">
+                <div v-if="ok" class="test">foo</div>
+              </transition>
+            </div>
+          `,
+          data: { ok: true }
+        }).$mount(el)
+
+        vm.ok = false
+
+        waitForUpdate(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+        }).thenWaitFor(explicitDuration + buffer).then(() => {
+          expect(vm.$el.children.length).toBe(0)
+          vm.ok = true
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+        }).thenWaitFor(explicitDuration + buffer).then(() => {
+          expect(vm.$el.children[0].className).toBe('test')
+        }).then(done)
+      })
+
+      it('enter and auto leave', done => {
+        const vm = new Vue({
+          template: `
+            <div>
+              <transition :duration="{ enter: ${explicitDuration} }">
+                <div v-if="ok" class="test">foo</div>
+              </transition>
+            </div>
+          `,
+          data: { ok: true }
+        }).$mount(el)
+
+        vm.ok = false
+
+        waitForUpdate(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+        }).thenWaitFor(duration + buffer).then(() => {
+          expect(vm.$el.children.length).toBe(0)
+          vm.ok = true
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+        }).thenWaitFor(explicitDuration + buffer).then(() => {
+          expect(vm.$el.children[0].className).toBe('test')
+        }).then(done)
+      })
+
+      it('leave and auto enter', done => {
+        const vm = new Vue({
+          template: `
+            <div>
+              <transition :duration="{ leave: ${explicitDuration} }">
+                <div v-if="ok" class="test">foo</div>
+              </transition>
+            </div>
+          `,
+          data: { ok: true }
+        }).$mount(el)
+
+        vm.ok = false
+
+        waitForUpdate(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+        }).thenWaitFor(explicitDuration + buffer).then(() => {
+          expect(vm.$el.children.length).toBe(0)
+          vm.ok = true
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+        }).thenWaitFor(duration + buffer).then(() => {
+          expect(vm.$el.children[0].className).toBe('test')
+        }).then(done)
+      })
+
+      it('separate enter and leave', done => {
+        const enter = explicitDuration
+        const leave = explicitDuration * 2
+
+        const vm = new Vue({
+          template: `
+            <div>
+              <transition :duration="{ enter: ${enter}, leave: ${leave} }">
+                <div v-if="ok" class="test">foo</div>
+              </transition>
+            </div>
+          `,
+          data: { ok: true }
+        }).$mount(el)
+
+        vm.ok = false
+
+        waitForUpdate(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+        }).thenWaitFor(leave + buffer).then(() => {
+          expect(vm.$el.children.length).toBe(0)
+          vm.ok = true
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+        }).thenWaitFor(enter + buffer).then(() => {
+          expect(vm.$el.children[0].className).toBe('test')
+        }).then(done)
+      })
+
+      it('enter and leave + duration change', done => {
+        const enter1 = explicitDuration * 2
+        const enter2 = explicitDuration
+        const leave1 = explicitDuration * 0.5
+        const leave2 = explicitDuration * 3
+
+        const vm = new Vue({
+          template: `
+            <div>
+              <transition :duration="{ enter: enter, leave: leave }">
+                <div v-if="ok" class="test">foo</div>
+              </transition>
+            </div>
+          `,
+          data: {
+            ok: true,
+            enter: enter1,
+            leave: leave1
+          }
+        }).$mount(el)
+
+        vm.ok = false
+
+        waitForUpdate(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+        }).thenWaitFor(leave1 + buffer).then(() => {
+          expect(vm.$el.children.length).toBe(0)
+          vm.ok = true
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+        }).thenWaitFor(enter1 + buffer).then(() => {
+          expect(vm.$el.children[0].className).toBe('test')
+          vm.enter = enter2
+          vm.leave = leave2
+        }).then(() => {
+          vm.ok = false
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave v-leave-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+        }).thenWaitFor(leave2 + buffer).then(() => {
+          expect(vm.$el.children.length).toBe(0)
+          vm.ok = true
+        }).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter v-enter-active')
+        }).thenWaitFor(nextFrame).then(() => {
+          expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+        }).thenWaitFor(enter2 + buffer).then(() => {
+          expect(vm.$el.children[0].className).toBe('test')
+        }).then(done)
+      }, 10000)
+
+      it('warn invalid durations', done => {
+        const vm = new Vue({
+          template: `
+            <div>
+              <transition :duration="{ enter: NaN, leave: 'foo' }">
+                <div v-if="ok" class="test">foo</div>
+              </transition>
+            </div>
+          `,
+          data: {
+            ok: true
+          }
+        }).$mount(el)
+
+        vm.ok = false
+        waitForUpdate(() => {
+          expect(`<transition> explicit leave duration is not a valid number - got "foo"`).toHaveBeenWarned()
+        }).thenWaitFor(duration + buffer).then(() => {
+          vm.ok = true
+        }).then(() => {
+          expect(`<transition> explicit enter duration is NaN`).toHaveBeenWarned()
+        }).then(done)
+      })
+    })
+
+    // #6687
+    it('transition on child components with empty root node', done => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <transition mode="out-in">
+              <component class="test" :is="view"></component>
+            </transition>
+          </div>
+        `,
+        data: { view: 'one' },
+        components: {
+          'one': {
+            template: '<div v-if="false">one</div>'
+          },
+          'two': {
+            template: '<div>two</div>'
+          }
+        }
+      }).$mount(el)
+
+      // should not apply transition on initial render by default
+      expect(vm.$el.innerHTML).toBe('<!---->')
+      vm.view = 'two'
+      waitForUpdate(() => {
+        expect(vm.$el.innerHTML).toBe('<div class="test v-enter v-enter-active">two</div>')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-enter-active v-enter-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.children[0].className).toBe('test')
+        vm.view = 'one'
+      }).then(() => {
+        // incoming comment node is appended instantly because it doesn't have
+        // data and therefore doesn't go through the transition module.
+        expect(vm.$el.innerHTML).toBe('<div class="test v-leave v-leave-active">two</div><!---->')
+      }).thenWaitFor(nextFrame).then(() => {
+        expect(vm.$el.children[0].className).toBe('test v-leave-active v-leave-to')
+      }).thenWaitFor(duration + buffer).then(() => {
+        expect(vm.$el.innerHTML).toBe('<!---->')
+      }).then(done)
+    })
+
+    // #8199
+    it('should not throw error when replaced by v-html contents', (done) => {
+      const vm = new Vue({
+        template: `
+          <div>
+            <div v-if="ok" :class="ok">
+              <transition>
+                <span>a</span>
+              </transition>
+            </div>
+            <div v-else v-html="ok"></div>
+          </div>
+        `,
+        data: { ok: true }
+      }).$mount(el)
+
+      vm.ok = false
+      waitForUpdate(() => {
+        expect(vm.$el.children[0].innerHTML).toBe('false')
       }).then(done)
     })
   })

@@ -1,6 +1,7 @@
 import { parse } from 'compiler/parser/index'
 import { extend } from 'shared/util'
-import { baseOptions } from 'web/compiler/index'
+import { baseOptions } from 'web/compiler/options'
+import { isIE, isEdge } from 'core/util/env'
 
 describe('parser', () => {
   it('simple element', () => {
@@ -76,13 +77,51 @@ describe('parser', () => {
     expect('Component template requires a root element, rather than just text').toHaveBeenWarned()
   })
 
+  it('warn text before root element', () => {
+    parse('before root {{ interpolation }}<div></div>', baseOptions)
+    expect('text "before root {{ interpolation }}" outside root element will be ignored.').toHaveBeenWarned()
+  })
+
+  it('warn text after root element', () => {
+    parse('<div></div>after root {{ interpolation }}', baseOptions)
+    expect('text "after root {{ interpolation }}" outside root element will be ignored.').toHaveBeenWarned()
+  })
+
   it('warn multiple root elements', () => {
     parse('<div></div><div></div>', baseOptions)
-    expect('Component template should contain exactly one root element:\n\n<div></div><div></div>').toHaveBeenWarned()
+    expect('Component template should contain exactly one root element').toHaveBeenWarned()
+  })
+
+  it('remove duplicate whitespace text nodes caused by comments', () => {
+    const ast = parse(`<div><a></a> <!----> <a></a></div>`, baseOptions)
+    expect(ast.children.length).toBe(3)
+    expect(ast.children[0].tag).toBe('a')
+    expect(ast.children[1].text).toBe(' ')
+    expect(ast.children[2].tag).toBe('a')
+  })
+
+  it('remove text nodes between v-if conditions', () => {
+    const ast = parse(`<div><div v-if="1"></div> <div v-else-if="2"></div> <div v-else></div> <span></span></div>`, baseOptions)
+    expect(ast.children.length).toBe(3)
+    expect(ast.children[0].tag).toBe('div')
+    expect(ast.children[0].ifConditions.length).toBe(3)
+    expect(ast.children[1].text).toBe(' ') // text
+    expect(ast.children[2].tag).toBe('span')
+  })
+
+  it('warn non whitespace text between v-if conditions', () => {
+    parse(`<div><div v-if="1"></div> foo <div v-else></div></div>`, baseOptions)
+    expect(`text "foo" between v-if and v-else(-if) will be ignored`).toHaveBeenWarned()
   })
 
   it('not warn 2 root elements with v-if and v-else', () => {
     parse('<div v-if="1"></div><div v-else></div>', baseOptions)
+    expect('Component template should contain exactly one root element')
+      .not.toHaveBeenWarned()
+  })
+
+  it('not warn 3 root elements with v-if, v-else-if and v-else', () => {
+    parse('<div v-if="1"></div><div v-else-if="2"></div><div v-else></div>', baseOptions)
     expect('Component template should contain exactly one root element')
       .not.toHaveBeenWarned()
   })
@@ -96,30 +135,90 @@ describe('parser', () => {
       .not.toHaveBeenWarned()
   })
 
+  it('not warn 3 or more root elements with v-if, v-else-if and v-else on separate lines', () => {
+    parse(`
+      <div v-if="1"></div>
+      <div v-else-if="2"></div>
+      <div v-else></div>
+    `, baseOptions)
+    expect('Component template should contain exactly one root element')
+      .not.toHaveBeenWarned()
+
+    parse(`
+      <div v-if="1"></div>
+      <div v-else-if="2"></div>
+      <div v-else-if="3"></div>
+      <div v-else-if="4"></div>
+      <div v-else></div>
+    `, baseOptions)
+    expect('Component template should contain exactly one root element')
+      .not.toHaveBeenWarned()
+  })
+
   it('generate correct ast for 2 root elements with v-if and v-else on separate lines', () => {
     const ast = parse(`
       <div v-if="1"></div>
       <p v-else></p>
     `, baseOptions)
     expect(ast.tag).toBe('div')
-    expect(ast.elseBlock.tag).toBe('p')
+    expect(ast.ifConditions[1].block.tag).toBe('p')
+  })
+
+  it('generate correct ast for 3 or more root elements with v-if and v-else on separate lines', () => {
+    const ast = parse(`
+      <div v-if="1"></div>
+      <span v-else-if="2"></span>
+      <p v-else></p>
+    `, baseOptions)
+    expect(ast.tag).toBe('div')
+    expect(ast.ifConditions[0].block.tag).toBe('div')
+    expect(ast.ifConditions[1].block.tag).toBe('span')
+    expect(ast.ifConditions[2].block.tag).toBe('p')
+
+    const astMore = parse(`
+      <div v-if="1"></div>
+      <span v-else-if="2"></span>
+      <div v-else-if="3"></div>
+      <span v-else-if="4"></span>
+      <p v-else></p>
+    `, baseOptions)
+    expect(astMore.tag).toBe('div')
+    expect(astMore.ifConditions[0].block.tag).toBe('div')
+    expect(astMore.ifConditions[1].block.tag).toBe('span')
+    expect(astMore.ifConditions[2].block.tag).toBe('div')
+    expect(astMore.ifConditions[3].block.tag).toBe('span')
+    expect(astMore.ifConditions[4].block.tag).toBe('p')
   })
 
   it('warn 2 root elements with v-if', () => {
     parse('<div v-if="1"></div><div v-if="2"></div>', baseOptions)
-    expect('Component template should contain exactly one root element:\n\n<div v-if="1"></div><div v-if="2"></div>')
-      .toHaveBeenWarned()
+    expect('Component template should contain exactly one root element').toHaveBeenWarned()
   })
 
   it('warn 3 root elements with v-if and v-else on first 2', () => {
     parse('<div v-if="1"></div><div v-else></div><div></div>', baseOptions)
-    expect('Component template should contain exactly one root element:\n\n<div v-if="1"></div><div v-else></div><div></div>')
-      .toHaveBeenWarned()
+    expect('Component template should contain exactly one root element').toHaveBeenWarned()
+  })
+
+  it('warn 3 root elements with v-if and v-else-if on first 2', () => {
+    parse('<div v-if="1"></div><div v-else-if></div><div></div>', baseOptions)
+    expect('Component template should contain exactly one root element').toHaveBeenWarned()
+  })
+
+  it('warn 4 root elements with v-if, v-else-if and v-else on first 2', () => {
+    parse('<div v-if="1"></div><div v-else-if></div><div v-else></div><div></div>', baseOptions)
+    expect('Component template should contain exactly one root element').toHaveBeenWarned()
   })
 
   it('warn 2 root elements with v-if and v-else with v-for on 2nd', () => {
     parse('<div v-if="1"></div><div v-else v-for="i in [1]"></div>', baseOptions)
-    expect('Cannot use v-for on stateful component root element because it renders multiple elements:\n<div v-if="1"></div><div v-else v-for="i in [1]"></div>')
+    expect('Cannot use v-for on stateful component root element because it renders multiple elements')
+      .toHaveBeenWarned()
+  })
+
+  it('warn 2 root elements with v-if and v-else-if with v-for on 2nd', () => {
+    parse('<div v-if="1"></div><div v-else-if="2" v-for="i in [1]"></div>', baseOptions)
+    expect('Cannot use v-for on stateful component root element because it renders multiple elements')
       .toHaveBeenWarned()
   })
 
@@ -143,6 +242,17 @@ describe('parser', () => {
     expect('<template> cannot be keyed').toHaveBeenWarned()
   })
 
+  it('warn the child of the <transition-group> component has sequential index', () => {
+    parse(`
+      <div>
+        <transition-group>
+          <i v-for="(o, i) of arr" :key="i"></i>
+        </transition-group>
+      </div>
+    `, baseOptions)
+    expect('Do not use v-for index as key on <transition-group> children').toHaveBeenWarned()
+  })
+
   it('v-pre directive', () => {
     const ast = parse('<div v-pre id="message1"><p>{{msg}}</p></div>', baseOptions)
     expect(ast.pre).toBe(true)
@@ -151,15 +261,24 @@ describe('parser', () => {
     expect(ast.children[0].children[0].text).toBe('{{msg}}')
   })
 
+  it('v-pre directive should leave template in DOM', () => {
+    const ast = parse('<div v-pre id="message1"><template id="template1"><p>{{msg}}</p></template></div>', baseOptions)
+    expect(ast.pre).toBe(true)
+    expect(ast.attrs[0].name).toBe('id')
+    expect(ast.attrs[0].value).toBe('"message1"')
+    expect(ast.children[0].attrs[0].name).toBe('id')
+    expect(ast.children[0].attrs[0].value).toBe('"template1"')
+  })
+
   it('v-for directive basic syntax', () => {
-    const ast = parse('<ul><li v-for="item in items"></li><ul>', baseOptions)
+    const ast = parse('<ul><li v-for="item in items"></li></ul>', baseOptions)
     const liAst = ast.children[0]
     expect(liAst.for).toBe('items')
     expect(liAst.alias).toBe('item')
   })
 
   it('v-for directive iteration syntax', () => {
-    const ast = parse('<ul><li v-for="(item, index) in items"></li><ul>', baseOptions)
+    const ast = parse('<ul><li v-for="(item, index) in items"></li></ul>', baseOptions)
     const liAst = ast.children[0]
     expect(liAst.for).toBe('items')
     expect(liAst.alias).toBe('item')
@@ -168,7 +287,7 @@ describe('parser', () => {
   })
 
   it('v-for directive iteration syntax (multiple)', () => {
-    const ast = parse('<ul><li v-for="(item, key, index) in items"></li><ul>', baseOptions)
+    const ast = parse('<ul><li v-for="(item, key, index) in items"></li></ul>', baseOptions)
     const liAst = ast.children[0]
     expect(liAst.for).toBe('items')
     expect(liAst.alias).toBe('item')
@@ -177,30 +296,162 @@ describe('parser', () => {
   })
 
   it('v-for directive key', () => {
-    const ast = parse('<ul><li v-for="item in items" :key="item.uid"></li><ul>', baseOptions)
+    const ast = parse('<ul><li v-for="item in items" :key="item.uid"></li></ul>', baseOptions)
     const liAst = ast.children[0]
     expect(liAst.for).toBe('items')
     expect(liAst.alias).toBe('item')
     expect(liAst.key).toBe('item.uid')
   })
 
+  it('v-for directive destructuring', () => {
+    let ast = parse('<ul><li v-for="{ foo } in items"></li></ul>', baseOptions)
+    let liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo }')
+
+    // with paren
+    ast = parse('<ul><li v-for="({ foo }) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo }')
+
+    // multi-var destructuring
+    ast = parse('<ul><li v-for="{ foo, bar, baz } in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo, bar, baz }')
+
+    // multi-var destructuring with paren
+    ast = parse('<ul><li v-for="({ foo, bar, baz }) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo, bar, baz }')
+
+    // with index
+    ast = parse('<ul><li v-for="({ foo }, i) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo }')
+    expect(liAst.iterator1).toBe('i')
+
+    // with key + index
+    ast = parse('<ul><li v-for="({ foo }, i, j) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo }')
+    expect(liAst.iterator1).toBe('i')
+    expect(liAst.iterator2).toBe('j')
+
+    // multi-var destructuring with index
+    ast = parse('<ul><li v-for="({ foo, bar, baz }, i) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo, bar, baz }')
+    expect(liAst.iterator1).toBe('i')
+
+    // array
+    ast = parse('<ul><li v-for="[ foo ] in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo ]')
+
+    // multi-array
+    ast = parse('<ul><li v-for="[ foo, bar, baz ] in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo, bar, baz ]')
+
+    // array with paren
+    ast = parse('<ul><li v-for="([ foo ]) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo ]')
+
+    // multi-array with paren
+    ast = parse('<ul><li v-for="([ foo, bar, baz ]) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo, bar, baz ]')
+
+    // array with index
+    ast = parse('<ul><li v-for="([ foo ], i) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo ]')
+    expect(liAst.iterator1).toBe('i')
+
+    // array with key + index
+    ast = parse('<ul><li v-for="([ foo ], i, j) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo ]')
+    expect(liAst.iterator1).toBe('i')
+    expect(liAst.iterator2).toBe('j')
+
+    // multi-array with paren
+    ast = parse('<ul><li v-for="([ foo, bar, baz ]) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo, bar, baz ]')
+
+    // multi-array with index
+    ast = parse('<ul><li v-for="([ foo, bar, baz ], i) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo, bar, baz ]')
+    expect(liAst.iterator1).toBe('i')
+
+    // nested
+    ast = parse('<ul><li v-for="({ foo, bar: { baz }, qux: [ n ] }, i, j) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('{ foo, bar: { baz }, qux: [ n ] }')
+    expect(liAst.iterator1).toBe('i')
+    expect(liAst.iterator2).toBe('j')
+
+    // array nested
+    ast = parse('<ul><li v-for="([ foo, { bar }, baz ], i, j) in items"></li></ul>', baseOptions)
+    liAst = ast.children[0]
+    expect(liAst.for).toBe('items')
+    expect(liAst.alias).toBe('[ foo, { bar }, baz ]')
+    expect(liAst.iterator1).toBe('i')
+    expect(liAst.iterator2).toBe('j')
+  })
+
   it('v-for directive invalid syntax', () => {
-    parse('<ul><li v-for="item into items"></li><ul>', baseOptions)
+    parse('<ul><li v-for="item into items"></li></ul>', baseOptions)
     expect('Invalid v-for expression').toHaveBeenWarned()
   })
 
   it('v-if directive syntax', () => {
     const ast = parse('<p v-if="show">hello world</p>', baseOptions)
     expect(ast.if).toBe('show')
+    expect(ast.ifConditions[0].exp).toBe('show')
+  })
+
+  it('v-else-if directive syntax', () => {
+    const ast = parse('<div><p v-if="show">hello</p><span v-else-if="2">elseif</span><p v-else>world</p></div>', baseOptions)
+    const ifAst = ast.children[0]
+    const conditionsAst = ifAst.ifConditions
+    expect(conditionsAst.length).toBe(3)
+    expect(conditionsAst[1].block.children[0].text).toBe('elseif')
+    expect(conditionsAst[1].block.parent).toBe(ast)
+    expect(conditionsAst[2].block.children[0].text).toBe('world')
+    expect(conditionsAst[2].block.parent).toBe(ast)
   })
 
   it('v-else directive syntax', () => {
     const ast = parse('<div><p v-if="show">hello</p><p v-else>world</p></div>', baseOptions)
     const ifAst = ast.children[0]
-    const elseAst = ifAst.elseBlock
-    expect(elseAst.else).toBe(true)
-    expect(elseAst.children[0].text).toBe('world')
-    expect(elseAst.parent).toBe(ast)
+    const conditionsAst = ifAst.ifConditions
+    expect(conditionsAst.length).toBe(2)
+    expect(conditionsAst[1].block.children[0].text).toBe('world')
+    expect(conditionsAst[1].block.parent).toBe(ast)
+  })
+
+  it('v-else-if directive invalid syntax', () => {
+    parse('<div><p v-else-if="1">world</p></div>', baseOptions)
+    expect('v-else-if="1" used on element').toHaveBeenWarned()
   })
 
   it('v-else directive invalid syntax', () => {
@@ -214,15 +465,15 @@ describe('parser', () => {
   })
 
   it('slot tag single syntax', () => {
-    const ast = parse('<slot></slot>', baseOptions)
-    expect(ast.tag).toBe('slot')
-    expect(ast.slotName).toBeUndefined()
+    const ast = parse('<div><slot></slot></div>', baseOptions)
+    expect(ast.children[0].tag).toBe('slot')
+    expect(ast.children[0].slotName).toBeUndefined()
   })
 
-  it('slot tag namped syntax', () => {
-    const ast = parse('<slot name="one">hello world</slot>', baseOptions)
-    expect(ast.tag).toBe('slot')
-    expect(ast.slotName).toBe('"one"')
+  it('slot tag named syntax', () => {
+    const ast = parse('<div><slot name="one">hello world</slot></div>', baseOptions)
+    expect(ast.children[0].tag).toBe('slot')
+    expect(ast.children[0].slotName).toBe('"one"')
   })
 
   it('slot target', () => {
@@ -255,7 +506,7 @@ describe('parser', () => {
     expect(ast2.classBinding).toBe('class1')
     // interpolation warning
     parse('<p class="{{error}}">hello world</p>', baseOptions)
-    expect('Interpolation inside attributes has been deprecated').toHaveBeenWarned()
+    expect('Interpolation inside attributes has been removed').toHaveBeenWarned()
   })
 
   it('style binding', () => {
@@ -277,6 +528,54 @@ describe('parser', () => {
     expect(ast.attrs[1].value).toBe('"field1"')
     expect(ast.props[0].name).toBe('value')
     expect(ast.props[0].value).toBe('msg')
+  })
+
+  it('empty v-bind expression', () => {
+    parse('<div :empty-msg=""></div>', baseOptions)
+    expect('The value for a v-bind expression cannot be empty. Found in "v-bind:empty-msg"').toHaveBeenWarned()
+  })
+
+  if (process.env.VBIND_PROP_SHORTHAND) {
+    it('v-bind.prop shorthand syntax', () => {
+      const ast = parse('<div .id="foo"></div>', baseOptions)
+      expect(ast.props).toEqual([{ name: 'id', value: 'foo', dynamic: false }])
+    })
+
+    it('v-bind.prop shorthand syntax w/ modifiers', () => {
+      const ast = parse('<div .id.mod="foo"></div>', baseOptions)
+      expect(ast.props).toEqual([{ name: 'id', value: 'foo', dynamic: false }])
+    })
+
+    it('v-bind.prop shorthand dynamic argument', () => {
+      const ast = parse('<div .[id]="foo"></div>', baseOptions)
+      expect(ast.props).toEqual([{ name: 'id', value: 'foo', dynamic: true }])
+    })
+  }
+
+  // This only works for string templates.
+  // In-DOM templates will be malformed before Vue can parse it.
+  describe('parse and warn invalid dynamic arguments', () => {
+    [
+      `<div v-bind:['foo' + bar]="baz"/>`,
+      `<div :['foo' + bar]="baz"/>`,
+      `<div @['foo' + bar]="baz"/>`,
+      `<foo #['foo' + bar]="baz"/>`,
+      `<div :['foo' + bar].some.mod="baz"/>`
+    ].forEach(template => {
+      it(template, () => {
+        const ast = parse(template, baseOptions)
+        expect(`Invalid dynamic argument expression`).toHaveBeenWarned()
+      })
+    })
+  })
+
+  // #6887
+  it('special case static attribute that must be props', () => {
+    const ast = parse('<video muted></video>', baseOptions)
+    expect(ast.attrs[0].name).toBe('muted')
+    expect(ast.attrs[0].value).toBe('""')
+    expect(ast.props[0].name).toBe('muted')
+    expect(ast.props[0].value).toBe('true')
   })
 
   it('attribute with v-on', () => {
@@ -317,13 +616,15 @@ describe('parser', () => {
     expect(ast1.attrs[2].value).toBe('"hello world"')
     // interpolation warning
     parse('<input type="text" name="field1" value="{{msg}}">', baseOptions)
-    expect('Interpolation inside attributes has been deprecated').toHaveBeenWarned()
+    expect('Interpolation inside attributes has been removed').toHaveBeenWarned()
   })
 
-  it('duplicate attribute', () => {
-    parse('<p class="class1" class="class1">hello world</p>', baseOptions)
-    expect('duplicate attribute').toHaveBeenWarned()
-  })
+  if (!isIE && !isEdge) {
+    it('duplicate attribute', () => {
+      parse('<p class="class1" class="class1">hello world</p>', baseOptions)
+      expect('duplicate attribute').toHaveBeenWarned()
+    })
+  }
 
   it('custom delimiter', () => {
     const ast = parse('<p>{msg}</p>', extend({ delimiters: ['{', '}'] }, baseOptions))
@@ -343,6 +644,14 @@ describe('parser', () => {
     delete options.mustUseProp
     const ast = parse('<input type="text" name="field1" :value="msg">', options)
     expect(ast.props).toBeUndefined()
+  })
+
+  it('use prop when prop modifier was explicitly declared', () => {
+    const ast = parse('<component is="textarea" :value.prop="val" />', baseOptions)
+    expect(ast.attrs).toBeUndefined()
+    expect(ast.props.length).toBe(1)
+    expect(ast.props[0].name).toBe('value')
+    expect(ast.props[0].value).toBe('val')
   })
 
   it('pre/post transforms', () => {
@@ -365,11 +674,211 @@ describe('parser', () => {
 
   it('preserve whitespace in <pre> tag', function () {
     const options = extend({}, baseOptions)
-    const ast = parse('<pre><code>  \n<span>hi</span>\n  </code></pre>', options)
+    const ast = parse('<pre><code>  \n<span>hi</span>\n  </code><span> </span></pre>', options)
     const code = ast.children[0]
     expect(code.children[0].type).toBe(3)
     expect(code.children[0].text).toBe('  \n')
     expect(code.children[2].type).toBe(3)
     expect(code.children[2].text).toBe('\n  ')
+
+    const span = ast.children[1]
+    expect(span.children[0].type).toBe(3)
+    expect(span.children[0].text).toBe(' ')
+  })
+
+  // #5992
+  it('ignore the first newline in <pre> tag', function () {
+    const options = extend({}, baseOptions)
+    const ast = parse('<div><pre>\nabc</pre>\ndef<pre>\n\nabc</pre></div>', options)
+    const pre = ast.children[0]
+    expect(pre.children[0].type).toBe(3)
+    expect(pre.children[0].text).toBe('abc')
+    const text = ast.children[1]
+    expect(text.type).toBe(3)
+    expect(text.text).toBe('\ndef')
+    const pre2 = ast.children[2]
+    expect(pre2.children[0].type).toBe(3)
+    expect(pre2.children[0].text).toBe('\nabc')
+  })
+
+  it('keep first newline after unary tag in <pre>', () => {
+    const options = extend({}, baseOptions)
+    const ast = parse('<pre>abc<input>\ndef</pre>', options)
+    expect(ast.children[1].type).toBe(1)
+    expect(ast.children[1].tag).toBe('input')
+    expect(ast.children[2].type).toBe(3)
+    expect(ast.children[2].text).toBe('\ndef')
+  })
+
+  it('forgivingly handle < in plain text', () => {
+    const options = extend({}, baseOptions)
+    const ast = parse('<p>1 < 2 < 3</p>', options)
+    expect(ast.tag).toBe('p')
+    expect(ast.children.length).toBe(1)
+    expect(ast.children[0].type).toBe(3)
+    expect(ast.children[0].text).toBe('1 < 2 < 3')
+  })
+
+  it('IE conditional comments', () => {
+    const options = extend({}, baseOptions)
+    const ast = parse(`
+      <div>
+        <!--[if lte IE 8]>
+          <p>Test 1</p>
+        <![endif]-->
+      </div>
+    `, options)
+    expect(ast.tag).toBe('div')
+    expect(ast.children.length).toBe(0)
+  })
+
+  it('parse content in textarea as text', () => {
+    const options = extend({}, baseOptions)
+
+    const whitespace = parse(`
+      <textarea>
+        <p>Test 1</p>
+        test2
+      </textarea>
+    `, options)
+    expect(whitespace.tag).toBe('textarea')
+    expect(whitespace.children.length).toBe(1)
+    expect(whitespace.children[0].type).toBe(3)
+    // textarea is whitespace sensitive
+    expect(whitespace.children[0].text).toBe(`        <p>Test 1</p>
+        test2
+      `)
+
+    const comment = parse('<textarea><!--comment--></textarea>', options)
+    expect(comment.tag).toBe('textarea')
+    expect(comment.children.length).toBe(1)
+    expect(comment.children[0].type).toBe(3)
+    expect(comment.children[0].text).toBe('<!--comment-->')
+  })
+
+  // #5526
+  it('should not decode text in script tags', () => {
+    const options = extend({}, baseOptions)
+    const ast = parse(`<script type="x/template">&gt;<foo>&lt;</script>`, options)
+    expect(ast.children[0].text).toBe(`&gt;<foo>&lt;`)
+  })
+
+  it('should ignore comments', () => {
+    const options = extend({}, baseOptions)
+    const ast = parse(`<div>123<!--comment here--></div>`, options)
+    expect(ast.tag).toBe('div')
+    expect(ast.children.length).toBe(1)
+    expect(ast.children[0].type).toBe(3)
+    expect(ast.children[0].text).toBe('123')
+  })
+
+  it('should kept comments', () => {
+    const options = extend({
+      comments: true
+    }, baseOptions)
+    const ast = parse(`<div>123<!--comment here--></div>`, options)
+    expect(ast.tag).toBe('div')
+    expect(ast.children.length).toBe(2)
+    expect(ast.children[0].type).toBe(3)
+    expect(ast.children[0].text).toBe('123')
+    expect(ast.children[1].type).toBe(3) // parse comment with ASTText
+    expect(ast.children[1].isComment).toBe(true) // parse comment with ASTText
+    expect(ast.children[1].text).toBe('comment here')
+  })
+
+  // #9407
+  it('should parse templates with comments anywhere', () => {
+    const options = extend({
+      comments: true
+    }, baseOptions)
+    const ast = parse(`<!--comment here--><div>123</div>`, options)
+    expect(ast.tag).toBe('div')
+    expect(ast.children.length).toBe(1)
+  })
+
+  // #8103
+  it('should allow CRLFs in string interpolations', () => {
+    const ast = parse(`<p>{{\r\nmsg\r\n}}</p>`, baseOptions)
+    expect(ast.children[0].expression).toBe('_s(msg)')
+  })
+
+  it('preserveWhitespace: false', () => {
+    const options = extend({
+      preserveWhitespace: false
+    }, baseOptions)
+
+    const ast = parse('<p>\n  Welcome to <b>Vue.js</b>    <i>world</i>  \n  <span>.\n  Have fun!\n</span></p>', options)
+    expect(ast.tag).toBe('p')
+    expect(ast.children.length).toBe(4)
+    expect(ast.children[0].type).toBe(3)
+    expect(ast.children[0].text).toBe('\n  Welcome to ')
+    expect(ast.children[1].tag).toBe('b')
+    expect(ast.children[1].children[0].text).toBe('Vue.js')
+    expect(ast.children[2].tag).toBe('i')
+    expect(ast.children[2].children[0].text).toBe('world')
+    expect(ast.children[3].tag).toBe('span')
+    expect(ast.children[3].children[0].text).toBe('.\n  Have fun!\n')
+  })
+
+  const condenseOptions = extend({
+    whitespace: 'condense',
+    // should be ignored when whitespace is specified
+    preserveWhitespace: false
+  }, baseOptions)
+
+  it(`whitespace: 'condense'`, () => {
+    const options = extend({}, condenseOptions)
+    const ast = parse('<p>\n  Welcome to <b>Vue.js</b>    <i>world</i>  \n  <span>.\n  Have fun!\n</span></p>', options)
+    expect(ast.tag).toBe('p')
+    expect(ast.children.length).toBe(5)
+    expect(ast.children[0].type).toBe(3)
+    expect(ast.children[0].text).toBe(' Welcome to ')
+    expect(ast.children[1].tag).toBe('b')
+    expect(ast.children[1].children[0].text).toBe('Vue.js')
+    expect(ast.children[2].type).toBe(3)
+    // should condense inline whitespace into single space
+    expect(ast.children[2].text).toBe(' ')
+    expect(ast.children[3].tag).toBe('i')
+    expect(ast.children[3].children[0].text).toBe('world')
+    // should have removed the whitespace node between tags that contains newlines
+    expect(ast.children[4].tag).toBe('span')
+    expect(ast.children[4].children[0].text).toBe('. Have fun! ')
+  })
+
+  it(`preserve whitespace in <pre> tag with whitespace: 'condense'`, function () {
+    const options = extend({}, condenseOptions)
+    const ast = parse('<pre><code>  \n<span>hi</span>\n  </code><span> </span></pre>', options)
+    const code = ast.children[0]
+    expect(code.children[0].type).toBe(3)
+    expect(code.children[0].text).toBe('  \n')
+    expect(code.children[2].type).toBe(3)
+    expect(code.children[2].text).toBe('\n  ')
+
+    const span = ast.children[1]
+    expect(span.children[0].type).toBe(3)
+    expect(span.children[0].text).toBe(' ')
+  })
+
+  it(`ignore the first newline in <pre> tag with whitespace: 'condense'`, function () {
+    const options = extend({}, condenseOptions)
+    const ast = parse('<div><pre>\nabc</pre>\ndef<pre>\n\nabc</pre></div>', options)
+    const pre = ast.children[0]
+    expect(pre.children[0].type).toBe(3)
+    expect(pre.children[0].text).toBe('abc')
+    const text = ast.children[1]
+    expect(text.type).toBe(3)
+    expect(text.text).toBe(' def')
+    const pre2 = ast.children[2]
+    expect(pre2.children[0].type).toBe(3)
+    expect(pre2.children[0].text).toBe('\nabc')
+  })
+
+  it(`keep first newline after unary tag in <pre> with whitespace: 'condense'`, () => {
+    const options = extend({}, condenseOptions)
+    const ast = parse('<pre>abc<input>\ndef</pre>', options)
+    expect(ast.children[1].type).toBe(1)
+    expect(ast.children[1].tag).toBe('input')
+    expect(ast.children[2].type).toBe(3)
+    expect(ast.children[2].text).toBe('\ndef')
   })
 })

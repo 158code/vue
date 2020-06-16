@@ -1,43 +1,49 @@
-declare type VNodeChildren = Array<?VNode | string | VNodeChildren> | string
+declare type VNodeChildren = Array<?VNode | string | VNodeChildren> | string;
 
 declare type VNodeComponentOptions = {
   Ctor: Class<Component>;
   propsData: ?Object;
   listeners: ?Object;
-  children: ?VNodeChildren;
+  children: ?Array<VNode>;
   tag?: string;
-}
+};
 
 declare type MountedComponentVNode = {
+  context: Component;
   componentOptions: VNodeComponentOptions;
-  child: Component;
+  componentInstance: Component;
   parent: VNode;
   data: VNodeData;
-}
+};
 
 // interface for vnodes in update modules
 declare type VNodeWithData = {
   tag: string;
   data: VNodeData;
-  children: Array<VNode> | void;
+  children: ?Array<VNode>;
   text: void;
-  elm: HTMLElement;
+  elm: any;
   ns: string | void;
   context: Component;
   key: string | number | void;
   parent?: VNodeWithData;
-  child?: Component;
+  componentOptions?: VNodeComponentOptions;
+  componentInstance?: Component;
   isRootInsert: boolean;
-}
+};
 
 declare interface VNodeData {
   key?: string | number;
   slot?: string;
   ref?: string;
+  is?: string;
+  pre?: boolean;
   tag?: string;
   staticClass?: string;
   class?: any;
-  style?: Array<Object> | Object;
+  staticStyle?: { [key: string]: any };
+  style?: string | Array<Object> | Object;
+  normalizedStyle?: Object;
   props?: { [key: string]: any };
   attrs?: { [key: string]: string };
   domProps?: { [key: string]: any };
@@ -52,7 +58,12 @@ declare interface VNodeData {
   };
   directives?: Array<VNodeDirective>;
   keepAlive?: boolean;
-}
+  scopedSlots?: { [key: string]: Function };
+  model?: {
+    value: any;
+    callback: Function;
+  };
+};
 
 declare type VNodeDirective = {
   name: string;
@@ -60,6 +71,9 @@ declare type VNodeDirective = {
   value?: any;
   oldValue?: any;
   arg?: string;
-  modifiers?: { [key: string]: boolean };
+  oldArg?: string;
+  modifiers?: ASTModifiers;
   def?: Object;
-}
+};
+
+declare type ScopedSlotsData = Array<{ key: string, fn: Function } | ScopedSlotsData>;

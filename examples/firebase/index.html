@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Vue.js Firebase example</title>
+    <title>Vue.js firebase + validation example</title>
     <meta charset="utf-8">
     <link rel="stylesheet" type="text/css" href="style.css">
     <!-- Vue -->
-    <script src="../../dist/vue.js"></script>
+    <!-- Delete ".min" for console warnings in development -->
+    <script src="../../dist/vue.min.js"></script>
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/3.4.0/firebase.js"></script>
     <!-- VueFire -->
@@ -20,8 +21,8 @@
         </li>
       </ul>
       <form id="form" v-on:submit.prevent="addUser">
-        <input v-model="newUser.name">
-        <input v-model="newUser.email">
+        <input v-model="newUser.name" placeholder="Add Name">
+        <input v-model="newUser.email" placeholder="Add Email">
         <input type="submit" value="Add User">
       </form>
       <ul class="errors">

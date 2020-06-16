@@ -2,14 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Vue.js Modal Example</title>
-    <script src="../../dist/vue.js"></script>
+    <title>Vue.js modal component example</title>
+    <!-- Delete ".min" for console warnings in development -->
+    <script src="../../dist/vue.min.js"></script>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <!-- template for the modal component -->
     <script type="text/x-template" id="modal-template">
-      <transition name="modal">
+      <transition name="modal" appear>
         <div class="modal-mask">
           <div class="modal-wrapper">
             <div class="modal-container">

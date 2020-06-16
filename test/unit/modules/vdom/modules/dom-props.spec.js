@@ -22,7 +22,7 @@ describe('vdom domProps module', () => {
     const vnode2 = new VNode('a', { domProps: {}})
     patch(null, vnode1)
     const elm = patch(vnode1, vnode2)
-    expect(elm.src).toBeUndefined()
+    expect(elm.src).toBe('')
   })
 
   it('should initialize the elements value to zero', () => {
@@ -52,6 +52,16 @@ describe('vdom domProps module', () => {
     const elm2 = patch(null, vnode2)
     expect(elm2.textContent).toBe('hi')
     expect(vnode2.children.length).toBe(0)
+
+    const vnode3 = new VNode('div', undefined, undefined, '123')
+    patch(null, vnode3)
+    const elm3 = patch(vnode3, vnode2)
+    expect(elm3.textContent).toBe('hi')
+
+    const vnode4 = new VNode('div', undefined, undefined, new VNode('span'))
+    patch(null, vnode4)
+    const elm4 = patch(vnode4, vnode)
+    expect(elm4.textContent).toBe('hi')
   })
 
   it('should handle mutating observed props object', done => {

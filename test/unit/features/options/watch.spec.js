@@ -1,10 +1,14 @@
 import Vue from 'vue'
+import testObjectOption from '../../../helpers/test-object-option'
+import { finished } from 'stream';
 
 describe('Options watch', () => {
   let spy
   beforeEach(() => {
     spy = jasmine.createSpy('watch')
   })
+
+  testObjectOption('watch')
 
   it('basic usage', done => {
     const vm = new Vue({
@@ -100,5 +104,75 @@ describe('Options watch', () => {
     }).then(() => {
       expect(spy).toHaveBeenCalledWith(vm.a, oldA)
     }).then(done)
+  })
+
+  it('correctly merges multiple extends', done => {
+    const spy2 = jasmine.createSpy('A')
+    const spy3 = jasmine.createSpy('B')
+    const A = Vue.extend({
+      data: function () {
+        return {
+          a: 0,
+          b: 0
+        }
+      },
+      watch: {
+        b: spy
+      }
+    })
+
+    const B = Vue.extend({
+      extends: A,
+      watch: {
+        a: spy2
+      }
+    })
+
+    const C = Vue.extend({
+      extends: B,
+      watch: {
+        a: spy3
+      }
+    })
+
+    const vm = new C()
+    vm.a = 1
+
+    waitForUpdate(() => {
+      expect(spy).not.toHaveBeenCalled()
+      expect(spy2).toHaveBeenCalledWith(1, 0)
+      expect(spy3).toHaveBeenCalledWith(1, 0)
+    }).then(done)
+  })
+
+  it('should support watching unicode paths', done => {
+    const vm = new Vue({
+      data: {
+        数据: 1
+      },
+      watch: {
+        数据: spy
+      }
+    })
+    expect(spy).not.toHaveBeenCalled()
+    vm['数据'] = 2
+    expect(spy).not.toHaveBeenCalled()
+    waitForUpdate(() => {
+      expect(spy).toHaveBeenCalledWith(2, 1)
+    }).then(done)
+  })
+
+  it('should not warn proper usage', () => {
+    const vm = new Vue({
+      data: {
+        foo: { _bar: 1 }, // element has such watchers...
+        prop1: 123
+      },
+      watch: {
+        'foo._bar': () => {},
+        prop1 () {}
+      }
+    })
+    expect(`Failed watching path`).not.toHaveBeenWarned()
   })
 })

@@ -15,17 +15,18 @@ describe('Options name', () => {
     })
 
     /* eslint-disable */
-    expect(`Invalid component name: "Hyper*Vue". Component names can only contain alphanumeric characaters and the hyphen.`)
+    expect(`Invalid component name: "Hyper*Vue".`)
       .toHaveBeenWarned()
     /* eslint-enable */
-  })
 
-  it('when incorrect name given it should not contain itself in self components', () => {
-    const vm = Vue.extend({
-      name: 'Hyper*Vue'
+    Vue.extend({
+      name: '2Cool2BValid'
     })
 
-    expect(vm.options.components['Hyper*Vue']).toBeUndefined()
+    /* eslint-disable */
+    expect(`Invalid component name: "2Cool2BValid".`)
+      .toHaveBeenWarned()
+    /* eslint-enable */
   })
 
   it('id should not override given name when using Vue.component', () => {
@@ -35,5 +36,13 @@ describe('Options name', () => {
 
     expect(SuperComponent.options.components['SuperVue']).toEqual(SuperComponent)
     expect(SuperComponent.options.components['super-component']).toEqual(SuperComponent)
+  })
+
+  it('should allow all potential custom element name for component name including non-alphanumeric characters', () => {
+    Vue.extend({
+      name: 'my-컴포넌트'
+    })
+
+    expect(`Invalid component name`).not.toHaveBeenWarned()
   })
 })

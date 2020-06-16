@@ -1,6 +1,6 @@
 'use strict'
 
-const self = (global || root)
+const self = (global || root) // eslint-disable-line
 
 self.performance = {
   now: function () {
@@ -35,18 +35,18 @@ module.exports = {
         }
       },
       // template: '<table><tr v-for="row in grid"><th>123</th><td v-for="item in row.items">{{ item.id }}</td></tr></table>',
-      template: '<table width="100%" cellspacing="2"><row v-for="row in grid" :row="row"></row></table>',
+      template: '<table width="100%" cellspacing="2"><row v-for="row in grid" :key="row.id" :row="row"></row></table>',
       components: {
         row: {
           props: ['row'],
-          template: '<tr><th>{{ Math.random() }}</th><column v-for="item in row.items"></column></tr>',
+          template: '<tr><th>{{ Math.random() }}</th><column v-for="item in row.items" :key="item.id"></column></tr>',
           components: {
             column: {
               template: '<td class="item">' +
                 // 25 plain elements for each cell
                 '<ul class="yoyo">' +
-                  '<li class="hihi" v-for="i in 5">' +
-                    '<span v-for="i in 5">fsefs</span>' +
+                  `<li v-for="i in 5" :class="'hihi' + i">` +
+                    `<span :id="i + '_' + j" v-for="j in 5">fsefs</span>` +
                     '</li>' +
                 '</ul>' +
               '</td>'

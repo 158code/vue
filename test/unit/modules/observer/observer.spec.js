@@ -177,7 +177,7 @@ describe('Observer', () => {
   })
 
   it('observing object prop change', () => {
-    const obj = { a: { b: 2 }}
+    const obj = { a: { b: 2 }, c: NaN }
     observe(obj)
     // mock a watcher!
     const watcher = {
@@ -192,19 +192,24 @@ describe('Observer', () => {
     Dep.target = watcher
     obj.a.b
     Dep.target = null
-    expect(watcher.deps.length).toBe(3) // obj.a + a.b + b
+    expect(watcher.deps.length).toBe(3) // obj.a + a + a.b
     obj.a.b = 3
     expect(watcher.update.calls.count()).toBe(1)
     // swap object
     obj.a = { b: 4 }
     expect(watcher.update.calls.count()).toBe(2)
     watcher.deps = []
+
     Dep.target = watcher
     obj.a.b
+    obj.c
     Dep.target = null
-    expect(watcher.deps.length).toBe(3)
+    expect(watcher.deps.length).toBe(4)
     // set on the swapped object
     obj.a.b = 5
+    expect(watcher.update.calls.count()).toBe(3)
+    // should not trigger on NaN -> NaN set
+    obj.c = NaN
     expect(watcher.update.calls.count()).toBe(3)
   })
 
@@ -221,19 +226,7 @@ describe('Observer', () => {
     })
 
     observe(obj)
-    // mock a watcher!
-    const watcher = {
-      deps: [],
-      addDep: function (dep) {
-        this.deps.push(dep)
-        dep.addSub(this)
-      },
-      update: jasmine.createSpy()
-    }
-    // collect dep
-    Dep.target = watcher
     expect(obj.a).toBe(2) // Make sure 'this' is preserved
-    Dep.target = null
     obj.a = 3
     expect(obj.val).toBe(3) // make sure 'setter' was called
     obj.val = 5
@@ -279,6 +272,17 @@ describe('Observer', () => {
     delProp(obj3, 'a')
     expect(hasOwn(obj3, 'a')).toBe(false)
     expect(dep3.notify.calls.count()).toBe(2)
+    // set and delete non-numeric key on array
+    const arr2 = ['a']
+    const ob2 = observe(arr2)
+    const dep2 = ob2.dep
+    spyOn(dep2, 'notify')
+    setProp(arr2, 'b', 2)
+    expect(arr2.b).toBe(2)
+    expect(dep2.notify.calls.count()).toBe(1)
+    delProp(arr2, 'b')
+    expect(hasOwn(arr2, 'b')).toBe(false)
+    expect(dep2.notify.calls.count()).toBe(2)
   })
 
   it('warning set/delete on a Vue instance', done => {
@@ -307,7 +311,7 @@ describe('Observer', () => {
       data
     }).$mount()
     expect(vm.$el.outerHTML).toBe('<div>1</div>')
-    Vue.set(data, 'a', 2)
+    expect(Vue.set(data, 'a', 2)).toBe(2)
     waitForUpdate(() => {
       expect(vm.$el.outerHTML).toBe('<div>2</div>')
       expect('Avoid adding reactive properties to a Vue instance').not.toHaveBeenWarned()
@@ -315,7 +319,7 @@ describe('Observer', () => {
     }).then(() => {
       expect('Avoid deleting properties on a Vue instance').toHaveBeenWarned()
       expect(vm.$el.outerHTML).toBe('<div>2</div>')
-      Vue.set(data, 'b', 123)
+      expect(Vue.set(data, 'b', 123)).toBe(123)
       expect('Avoid adding reactive properties to a Vue instance').toHaveBeenWarned()
     }).then(done)
   })
@@ -338,5 +342,31 @@ describe('Observer', () => {
     objs.forEach(obj => {
       expect(obj.__ob__ instanceof Observer).toBe(true)
     })
+  })
+
+  it('warn set/delete on non valid values', () => {
+    try {
+      setProp(null, 'foo', 1)
+    } catch (e) {}
+    expect(`Cannot set reactive property on undefined, null, or primitive value`).toHaveBeenWarned()
+
+    try {
+      delProp(null, 'foo')
+    } catch (e) {}
+    expect(`Cannot delete reactive property on undefined, null, or primitive value`).toHaveBeenWarned()
+  })
+
+  it('should lazy invoke existing getters', () => {
+    const obj = {}
+    let called = false
+    Object.defineProperty(obj, 'getterProp', {
+      enumerable: true,
+      get: () => {
+        called = true
+        return 'some value'
+      }
+    })
+    observe(obj)
+    expect(called).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import Vue from 'vue'
-const mergeOptions = Vue.util.mergeOptions
+import { mergeOptions } from 'core/util/index'
 
 describe('Options mixins', () => {
   it('vm should have options from mixin', () => {
@@ -17,7 +17,7 @@ describe('Options mixins', () => {
       methods: {
         b: function () {}
       }
-    }).$mount()
+    })
 
     expect(vm.a).toBeDefined()
     expect(vm.b).toBeDefined()
@@ -103,8 +103,40 @@ describe('Options mixins', () => {
       methods: {
         b: function () {}
       }
-    }).$mount()
+    })
 
+    expect(vm.a).toBeDefined()
+    expect(vm.b).toBeDefined()
+    expect(vm.$options.directives.c).toBeDefined()
+  })
+
+  it('should accept further extended constructors as mixins', () => {
+    const spy1 = jasmine.createSpy('mixinA')
+    const spy2 = jasmine.createSpy('mixinB')
+
+    const mixinA = Vue.extend({
+      created: spy1,
+      directives: {
+        c: {}
+      },
+      methods: {
+        a: function () {}
+      }
+    })
+
+    const mixinB = mixinA.extend({
+      created: spy2
+    })
+
+    const vm = new Vue({
+      mixins: [mixinB],
+      methods: {
+        b: function () {}
+      }
+    })
+
+    expect(spy1).toHaveBeenCalledTimes(1)
+    expect(spy2).toHaveBeenCalledTimes(1)
     expect(vm.a).toBeDefined()
     expect(vm.b).toBeDefined()
     expect(vm.$options.directives.c).toBeDefined()
